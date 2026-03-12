@@ -91,6 +91,21 @@ export const useAiAnalysisPersistence = () => {
   const updateMeta = useCallback((update: PersistMetaUpdate) => {
     const current = metaRef.current;
     if (!current) return null;
+
+    // Evitar actualizaciones innecesarias si los datos son los mismos
+    const hasChanges = Object.keys(update).some(key => {
+      const k = key as keyof PersistMetaUpdate;
+      if (k === 'localResult') {
+        return JSON.stringify(current.localResult) !== JSON.stringify(update.localResult);
+      }
+      if (k === 'confirmedHeaders') {
+        return JSON.stringify(current.confirmedHeaders) !== JSON.stringify(update.confirmedHeaders);
+      }
+      return current[k] !== update[k];
+    });
+
+    if (!hasChanges) return current;
+
     const next = updateSessionMeta(current, update);
     metaRef.current = next;
     setHydrated(prev => (prev ? { ...prev, meta: next } : prev));
@@ -146,16 +161,29 @@ export const useAiAnalysisPersistence = () => {
     }
   }, []);
 
-  return {
-    hydrated,
-    replaceHydrated,
-    metaRef,
-    hasActiveSession,
-    matchesActiveFile,
-    startNewSession,
-    updateMeta,
-    addPart,
-    clearActive,
-    clearSessionById,
-  };
+  return useMemo(
+    () => ({
+      hydrated,
+      replaceHydrated,
+      metaRef,
+      hasActiveSession,
+      matchesActiveFile,
+      startNewSession,
+      updateMeta,
+      addPart,
+      clearActive,
+      clearSessionById,
+    }),
+    [
+      hydrated,
+      replaceHydrated,
+      hasActiveSession,
+      matchesActiveFile,
+      startNewSession,
+      updateMeta,
+      addPart,
+      clearActive,
+      clearSessionById,
+    ],
+  );
 };

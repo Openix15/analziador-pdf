@@ -166,7 +166,7 @@ export default function Login({ authStorageKey }: Props) {
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="username"
                   disabled={isSubmitting}
-                  placeholder="ana@openix.com.ar"
+                  placeholder="user@example.com"
                 />
               </div>
               <div className="space-y-2">

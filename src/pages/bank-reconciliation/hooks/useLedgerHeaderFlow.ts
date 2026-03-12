@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { settingsDb, type AiProviderId } from '@/lib/localDb';
+import {
+  DEFAULT_GEMINI_API_KEY,
+  BACKUP_GEMINI_API_KEY,
+  DEFAULT_GEMINI_MODEL,
+} from '@/lib/aiConfig';
 import { showError, showSuccess } from '@/utils/toast';
 import { findHeaderRowIndex } from '../utils/headerUtils';
 import { parseCSVRows, parseExcelRows, type LedgerFormat } from '../utils/fileParsers';
@@ -212,17 +217,62 @@ Filas:
 ${sampleRows.join('\n')}`;
       let rawText = '';
       if (ai.selectedProvider === 'gemini') {
-        const geminiKey = settingsDb.getGeminiApiKey();
-        if (!geminiKey) {
+        const userGeminiKey = settingsDb.getGeminiApiKey();
+        const keysToTry = [userGeminiKey, DEFAULT_GEMINI_API_KEY, BACKUP_GEMINI_API_KEY].filter(
+          (k): k is string => typeof k === 'string' && k.trim().length > 0,
+        );
+
+        if (keysToTry.length === 0) {
           showError('API Key de Gemini no configurada (Cuenta → Configuración)');
           return;
         }
-        const { GoogleGenerativeAI } = await import('@google/generative-ai');
-        const genAI = new GoogleGenerativeAI(geminiKey.trim());
-        const model = genAI.getGenerativeModel({ model: ai.effectiveModelName || 'gemini-2.5-flash' });
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        rawText = response.text();
+
+        const geminiModels = settingsDb
+          .getAiModels()
+          .filter(m => m.provider === 'gemini')
+          .map(m => m.model);
+        const modelsToTry = Array.from(new Set([DEFAULT_GEMINI_MODEL, ai.effectiveModelName, ...geminiModels]));
+
+        let success = false;
+        let lastError = '';
+
+        // Intentamos cada API Key
+        for (const apiKey of keysToTry) {
+          // Para cada API Key, intentamos todos los modelos disponibles
+          for (const modelName of modelsToTry) {
+            try {
+              const { GoogleGenerativeAI } = await import('@google/generative-ai');
+              const genAI = new GoogleGenerativeAI(apiKey.trim());
+              const model = genAI.getGenerativeModel({ model: modelName || DEFAULT_GEMINI_MODEL });
+              const result = await model.generateContent(prompt);
+              const response = await result.response;
+              rawText = response.text();
+              success = true;
+              break;
+            } catch (e: unknown) {
+              lastError = e instanceof Error ? e.message : 'Error desconocido';
+              
+              // Solo reintentamos con otro modelo o clave si es un error de cuota, crédito o API key
+              const isRetryableError =
+                lastError.includes('429') ||
+                lastError.toLowerCase().includes('quota') ||
+                lastError.toLowerCase().includes('exhausted') ||
+                lastError.toLowerCase().includes('limit') ||
+                lastError.toLowerCase().includes('api key') ||
+                lastError.toLowerCase().includes('unauthorized') ||
+                lastError.toLowerCase().includes('invalid') ||
+                lastError.toLowerCase().includes('credit');
+                
+              if (!isRetryableError) break;
+            }
+          }
+          if (success) break;
+        }
+
+        if (!success) {
+          showError(lastError || 'Error al conectar con Gemini.');
+          return;
+        }
       } else {
         const kimiKey = settingsDb.getKimiApiKey();
         if (!kimiKey) {
