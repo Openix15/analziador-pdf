@@ -159,10 +159,28 @@ export const PdfValidatorDialog: React.FC<Props> = ({
                         id="validator-page-toggle"
                         checked={currentPageChecked}
                         onCheckedChange={() => {
-                          const next = validatedPages.slice();
-                          next[safeCurrentPage - 1] = !currentPageChecked;
-                          setValidatedPages(next);
-                          persistState(next, safeCurrentPage, { showFeedback: true });
+                          const nextStatus = !currentPageChecked;
+                          const nextValidatedPages = validatedPages.slice();
+                          nextValidatedPages[safeCurrentPage - 1] = nextStatus;
+                          setValidatedPages(nextValidatedPages);
+
+                          if (nextStatus) {
+                            // Si se marca como validado, persistimos inmediatamente para mostrar el feedback
+                            persistState(nextValidatedPages, safeCurrentPage, { showFeedback: true });
+                            
+                            // Agregamos un delay de 300ms antes de avanzar a la siguiente página
+                            setTimeout(() => {
+                              const nextPage = Math.min(safeTotalPages || 1, safeCurrentPage + 1);
+                              if (nextPage !== safeCurrentPage) {
+                                onSetCurrentPage(nextPage);
+                                // También persistimos la nueva página alcanzada
+                                persistState(nextValidatedPages, nextPage);
+                              }
+                            }, 300);
+                          } else {
+                            // Si se desmarca, solo persistimos la página actual
+                            persistState(nextValidatedPages, safeCurrentPage, { showFeedback: true });
+                          }
                         }}
                       />
                       <label

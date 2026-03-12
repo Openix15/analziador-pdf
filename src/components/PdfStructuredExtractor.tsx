@@ -307,9 +307,9 @@ const PdfStructuredExtractor: React.FC = () => {
 
           <div className="border rounded-md p-3 space-y-3">
             <AiVerificationHeaderBar onOpenAdvancedSettings={() => setShowAdvancedSettings(true)} />
-            <div className="text-xs text-muted-foreground">
+            {/* <div className="text-xs text-muted-foreground">
               Proveedor: {ai.selectedProvider === 'gemini' ? 'Gemini' : 'Kimi'} · Modelo: {ai.effectiveModelName}
-            </div>
+            </div> */}
             <AdvancedAiSettingsDialog
               open={showAdvancedSettings}
               onOpenChange={setShowAdvancedSettings}

@@ -316,11 +316,12 @@ export const useAiPdfVerification = ({
     setCurrentAiLogId(logId);
   }, [hydratedAiSession]);
 
+  const persistMeta = aiPersistence.updateMeta;
+
   useEffect(() => {
     if (localHeaders.length === 0 || localRows.length === 0) return;
-    const { updateMeta } = aiPersistence;
-    updateMeta({ localResult: { headers: localHeaders, rows: localRows } });
-  }, [aiPersistence.updateMeta, localHeaders, localRows]);
+    persistMeta({ localResult: { headers: localHeaders, rows: localRows } });
+  }, [localHeaders, localRows, persistMeta]);
 
   const handleFileSelected = async (file: File) => {
     const shouldResumeStored = !!hydratedAiSession && aiPersistence.matchesActiveFile(file);
@@ -390,7 +391,15 @@ export const useAiPdfVerification = ({
     try {
       if (selectedProvider === 'gemini') {
         const userGeminiKey = settingsDb.getGeminiApiKey();
-        const keysToTry = [userGeminiKey, DEFAULT_GEMINI_API_KEY, BACKUP_GEMINI_API_KEY].filter(
+        const fallbackDefault = settingsDb.getGeminiDefaultFallbackApiKey();
+        const fallbackBackup = settingsDb.getGeminiBackupFallbackApiKey();
+        const keysToTry = [
+          userGeminiKey,
+          DEFAULT_GEMINI_API_KEY,
+          BACKUP_GEMINI_API_KEY,
+          fallbackDefault,
+          fallbackBackup,
+        ].filter(
           (k): k is string => typeof k === 'string' && k.trim().length > 0,
         );
 
@@ -754,7 +763,15 @@ export const useAiPdfVerification = ({
 
       if (selectedProvider === 'gemini') {
         const userGeminiKey = settingsDb.getGeminiApiKey();
-        const keysToTry = [userGeminiKey, DEFAULT_GEMINI_API_KEY, BACKUP_GEMINI_API_KEY].filter(
+        const fallbackDefault = settingsDb.getGeminiDefaultFallbackApiKey();
+        const fallbackBackup = settingsDb.getGeminiBackupFallbackApiKey();
+        const keysToTry = [
+          userGeminiKey,
+          DEFAULT_GEMINI_API_KEY,
+          BACKUP_GEMINI_API_KEY,
+          fallbackDefault,
+          fallbackBackup,
+        ].filter(
           (k): k is string => typeof k === 'string' && k.trim().length > 0,
         );
 

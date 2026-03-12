@@ -218,7 +218,9 @@ ${sampleRows.join('\n')}`;
       let rawText = '';
       if (ai.selectedProvider === 'gemini') {
         const userGeminiKey = settingsDb.getGeminiApiKey();
-        const keysToTry = [userGeminiKey, DEFAULT_GEMINI_API_KEY, BACKUP_GEMINI_API_KEY].filter(
+        const fallbackDefault = settingsDb.getGeminiDefaultFallbackApiKey();
+        const fallbackBackup = settingsDb.getGeminiBackupFallbackApiKey();
+        const keysToTry = [userGeminiKey, DEFAULT_GEMINI_API_KEY, BACKUP_GEMINI_API_KEY, fallbackDefault, fallbackBackup].filter(
           (k): k is string => typeof k === 'string' && k.trim().length > 0,
         );
 

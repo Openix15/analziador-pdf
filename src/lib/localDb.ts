@@ -293,6 +293,8 @@ export type PdfAnalysisRun = {
 interface AppSettings {
   geminiApiKey?: string;
   kimiApiKey?: string;
+  geminiDefaultFallbackApiKey?: string;
+  geminiBackupFallbackApiKey?: string;
   aiModels?: AiModelConfig[];
   aiLogs?: AiExtractionLog[];
   pdfAnalysisRuns?: PdfAnalysisRun[];
@@ -346,6 +348,40 @@ export const settingsDb = {
   clearGeminiApiKey: () => {
     const settings = settingsDb.getSettings();
     delete settings.geminiApiKey;
+    settingsDb.saveSettings(settings);
+  },
+
+  getGeminiDefaultFallbackApiKey: (): string | undefined => {
+    const settings = settingsDb.getSettings();
+    return settings.geminiDefaultFallbackApiKey;
+  },
+
+  saveGeminiDefaultFallbackApiKey: (apiKey: string) => {
+    const settings = settingsDb.getSettings();
+    settings.geminiDefaultFallbackApiKey = apiKey;
+    settingsDb.saveSettings(settings);
+  },
+
+  clearGeminiDefaultFallbackApiKey: () => {
+    const settings = settingsDb.getSettings();
+    delete settings.geminiDefaultFallbackApiKey;
+    settingsDb.saveSettings(settings);
+  },
+
+  getGeminiBackupFallbackApiKey: (): string | undefined => {
+    const settings = settingsDb.getSettings();
+    return settings.geminiBackupFallbackApiKey;
+  },
+
+  saveGeminiBackupFallbackApiKey: (apiKey: string) => {
+    const settings = settingsDb.getSettings();
+    settings.geminiBackupFallbackApiKey = apiKey;
+    settingsDb.saveSettings(settings);
+  },
+
+  clearGeminiBackupFallbackApiKey: () => {
+    const settings = settingsDb.getSettings();
+    delete settings.geminiBackupFallbackApiKey;
     settingsDb.saveSettings(settings);
   },
 

@@ -18,6 +18,9 @@ type Props = {
 
 const AI_PREFS_STORAGE_KEY = 'pdf-structured-extractor:ai-preferences:v1';
 const AI_PREFS_CHANGED_EVENT = 'pdf-structured-extractor:ai-preferences:changed';
+const CREDIT_LIMIT = 100;
+const AI_EXTRA_COUNT_STORAGE_KEY = 'finanzas360:ai-extra-count:v1';
+const AI_EXTRA_COUNT_CHANGED_EVENT = 'finanzas360:ai-extra-count-changed';
 
 type AiPrefs = {
   provider: AiProviderId;
@@ -78,8 +81,23 @@ const Navbar: React.FC<Props> = ({ authStorageKey }) => {
   const location = useLocation();
   const email = getSessionEmail(authStorageKey);
   const [openSettings, setOpenSettings] = useState(false);
+  const [aiExtraCount, setAiExtraCount] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem(AI_EXTRA_COUNT_STORAGE_KEY);
+      const n = raw ? Number(raw) : 0;
+      return Number.isFinite(n) ? n : 0;
+    } catch {
+      return 0;
+    }
+  });
 
   const models = useMemo(() => settingsDb.getAiModels(), []);
+  const aiLogs = settingsDb.getAiLogs();
+  const safeAiLogs = useMemo(() => (Array.isArray(aiLogs) ? aiLogs : []), [aiLogs]);
+  const creditAvaiable = useMemo(
+    () => `Crédito disponible ${safeAiLogs.length + aiExtraCount}/${CREDIT_LIMIT}`,
+    [aiExtraCount, safeAiLogs.length],
+  );
   const [provider, setProvider] = useState<AiProviderId>('gemini');
   const [modelId, setModelId] = useState<string>('');
   const [customModel, setCustomModel] = useState<string>('');
@@ -133,6 +151,20 @@ const Navbar: React.FC<Props> = ({ authStorageKey }) => {
     if (!exists) setModelId(resolveDefaultModelId(models, provider));
   }, [models, modelId, provider]);
 
+  useEffect(() => {
+    const refresh = () => {
+      try {
+        const raw = localStorage.getItem(AI_EXTRA_COUNT_STORAGE_KEY);
+        const n = raw ? Number(raw) : 0;
+        setAiExtraCount(Number.isFinite(n) ? n : 0);
+      } catch {
+        setAiExtraCount(0);
+      }
+    };
+    window.addEventListener(AI_EXTRA_COUNT_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(AI_EXTRA_COUNT_CHANGED_EVENT, refresh);
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem(authStorageKey);
     navigate("/login", { replace: true });
@@ -159,6 +191,7 @@ const Navbar: React.FC<Props> = ({ authStorageKey }) => {
             <LogOut className="mr-2 h-4 w-4" />
             Logout
           </Button>
+          {creditAvaiable ? <div className="text-sm text-primary-foreground/90">{creditAvaiable}</div> : null}
         </div>
       </div>
       <div className="container mx-auto mt-3 flex justify-center">
@@ -200,6 +233,7 @@ const Navbar: React.FC<Props> = ({ authStorageKey }) => {
                 <div>
                   <Label>Proveedor</Label>
                   <Select
+                    disabled={true}
                     value={provider}
                     onValueChange={(val) => {
                       const nextProvider = val as AiProviderId;
@@ -221,6 +255,7 @@ const Navbar: React.FC<Props> = ({ authStorageKey }) => {
                 <div>
                   <Label>Modelo</Label>
                   <Select
+                    disabled={true}
                     value={modelId || undefined}
                     onValueChange={(val) => {
                       setModelId(val);
@@ -245,11 +280,12 @@ const Navbar: React.FC<Props> = ({ authStorageKey }) => {
               <div>
                 <Label htmlFor="custom-model-navbar">Modelo personalizado</Label>
                 <Input
+                  disabled={true}
                   id="custom-model-navbar"
                   type="text"
                   value={customModel}
                   onChange={(e) => setCustomModel(e.target.value)}
-                  placeholder={provider === 'gemini' ? 'gemini-2.5-pro' : 'kimi-k2-turbo-preview'}
+                  placeholder={provider === 'gemini' ? 'gemini-2.5-flash' : 'kimi-k2-turbo-preview'}
                 />
               </div>
               <div className="flex justify-end">

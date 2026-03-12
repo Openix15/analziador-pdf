@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import PdfExtract from "./pages/PdfExtract";
 import BankReconciliation from "./pages/BankReconciliation";
 import Login from "./pages/Login";
+import SetApiKey from "./pages/SetApiKey";
 import Navbar from "./components/layout/Navbar";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,14 @@ const AppShell = () => {
           element={
             <RequireAuth>
               <BankReconciliation />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/keys"
+          element={
+            <RequireAuth>
+              <SetApiKey />
             </RequireAuth>
           }
         />

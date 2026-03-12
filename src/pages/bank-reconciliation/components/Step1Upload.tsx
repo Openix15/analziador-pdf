@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { FileSpreadsheet, FileText, FileType, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+const AI_EXTRA_COUNT_STORAGE_KEY = 'finanzas360:ai-extra-count:v1';
+const AI_EXTRA_COUNT_CHANGED_EVENT = 'finanzas360:ai-extra-count-changed';
 
 const formatFileSize = (size: number) => {
   if (size < 1024) return `${size} B`;
@@ -36,6 +40,28 @@ export function Step1Upload({
   onClearLedgerFile: () => void;
   onContinue: () => void;
 }) {
+  const [aiExtraCount, setAiExtraCount] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem(AI_EXTRA_COUNT_STORAGE_KEY);
+      const n = raw ? Number(raw) : 0;
+      return Number.isFinite(n) ? n : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const handleContinue = () => {
+    const next = aiExtraCount + 1;
+    setAiExtraCount(next);
+    try {
+      localStorage.setItem(AI_EXTRA_COUNT_STORAGE_KEY, String(next));
+      window.dispatchEvent(new Event(AI_EXTRA_COUNT_CHANGED_EVENT));
+    } catch {
+      return;
+    }
+    onContinue();
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
@@ -102,7 +128,7 @@ export function Step1Upload({
 
       <div className="flex justify-between">
         <div />
-        <Button type="button" onClick={onContinue} disabled={!bankFile || !ledgerFile}>
+        <Button type="button" onClick={handleContinue} disabled={!bankFile || !ledgerFile}>
           Continuar con Encabezados
         </Button>
       </div>
