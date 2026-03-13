@@ -1,3 +1,4 @@
-export const DEFAULT_GEMINI_API_KEY = 'AIzaSyAn_aaQiVW6WFd5DuRlRUd_DVAT_myqoNU'; // API Key por defecto
-export const BACKUP_GEMINI_API_KEY = 'AIzaSyC5UzrouZmYqFN3jDnvR1gKpta2TuKzUGc';  // API Key de respaldo
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_GEMINI_API_KEY = import.meta.env.VITE_DEFAULT_GEMINI_API_KEY || '';
+export const BACKUP_GEMINI_API_KEY_1 = import.meta.env.VITE_BACKUP_GEMINI_API_KEY_1 || '';
+export const BACKUP_GEMINI_API_KEY_2 = import.meta.env.VITE_BACKUP_GEMINI_API_KEY_2 || '';
+export const DEFAULT_GEMINI_MODEL = import.meta.env.VITE_DEFAULT_GEMINI_MODEL || 'gemini-2.5-flash';

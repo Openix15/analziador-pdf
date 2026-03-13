@@ -8,7 +8,8 @@ import {
 } from '@/lib/localDb';
 import {
   DEFAULT_GEMINI_API_KEY,
-  BACKUP_GEMINI_API_KEY,
+  BACKUP_GEMINI_API_KEY_1,
+  BACKUP_GEMINI_API_KEY_2,
   DEFAULT_GEMINI_MODEL,
 } from '@/lib/aiConfig';
 import {
@@ -32,6 +33,11 @@ export const useAiPdfVerification = ({
 }) => {
   const AI_PREFS_STORAGE_KEY = 'pdf-structured-extractor:ai-preferences:v1';
   const AI_PREFS_CHANGED_EVENT = 'pdf-structured-extractor:ai-preferences:changed';
+  const maskApiKey = (apiKey: string) => {
+    const trimmed = apiKey.trim();
+    if (trimmed.length <= 10) return '***';
+    return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
+  };
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [verifyError, setVerifyError] = useState<string>('');
   const [verifyMessage, setVerifyMessage] = useState<string>('');
@@ -396,7 +402,8 @@ export const useAiPdfVerification = ({
         const keysToTry = [
           userGeminiKey,
           DEFAULT_GEMINI_API_KEY,
-          BACKUP_GEMINI_API_KEY,
+          BACKUP_GEMINI_API_KEY_1,
+          BACKUP_GEMINI_API_KEY_2,
           fallbackDefault,
           fallbackBackup,
         ].filter(
@@ -408,53 +415,51 @@ export const useAiPdfVerification = ({
           return;
         }
 
-        const geminiModels = models.filter(m => m.provider === 'gemini').map(m => m.model);
-        const modelsToTry = Array.from(new Set([DEFAULT_GEMINI_MODEL, effectiveModelName, ...geminiModels]));
-
         let lastError = '';
         let lastDebugInfo = '';
         let success = false;
 
         // Intentamos cada API Key
-        for (const apiKey of keysToTry) {
-          // Para cada API Key, intentamos todos los modelos disponibles
-          for (const modelName of modelsToTry) {
-            const result = await detectPdfHeadersWithGemini(
-              selectedFile,
-              apiKey,
-              modelName,
-              temperature,
-              topP,
-              stream,
+        for (let apiKeyIndex = 0; apiKeyIndex < keysToTry.length; apiKeyIndex++) {
+          const apiKey = keysToTry[apiKeyIndex];
+          if (apiKeyIndex > 0) {
+            console.warn(
+              `[Gemini] Cambiando de API key (${apiKeyIndex + 1}/${keysToTry.length}) ${maskApiKey(apiKey)}`,
             );
-
-            if (result.success && result.headers) {
-              setHeaderCandidate(result.headers);
-              setHeaderDraft(result.headers);
-              setVerifyMessage(`Encabezado detectado con ${modelName}.`);
-              success = true;
-              break;
-            }
-
-            lastError = result.error || 'Error al detectar encabezado con Gemini';
-            lastDebugInfo = result.debugInfo || '';
-
-            // Solo reintentamos con otro modelo o clave si es un error de cuota, crédito o API key
-            const isRetryableError =
-              lastError.includes('429') ||
-              lastError.toLowerCase().includes('quota') ||
-              lastError.toLowerCase().includes('exhausted') ||
-              lastError.toLowerCase().includes('limit') ||
-              lastError.toLowerCase().includes('api key') ||
-              lastError.toLowerCase().includes('unauthorized') ||
-              lastError.toLowerCase().includes('invalid') ||
-              lastError.toLowerCase().includes('credit');
-
-            if (!isRetryableError) {
-              break; // Si es un error de otro tipo (ej: PDF corrupto), no tiene sentido probar otros modelos/claves
-            }
           }
-          if (success) break;
+          const result = await detectPdfHeadersWithGemini(
+            selectedFile,
+            apiKey,
+            DEFAULT_GEMINI_MODEL,
+            temperature,
+            topP,
+            stream,
+          );
+
+          if (result.success && result.headers) {
+            setHeaderCandidate(result.headers);
+            setHeaderDraft(result.headers);
+            setVerifyMessage(`Encabezado detectado con ${DEFAULT_GEMINI_MODEL}.`);
+            success = true;
+            break;
+          }
+
+          lastError = result.error || 'Error al detectar encabezado con Gemini';
+          lastDebugInfo = result.debugInfo || '';
+
+          const isRetryableError =
+            lastError.includes('429') ||
+            lastError.toLowerCase().includes('quota') ||
+            lastError.toLowerCase().includes('exhausted') ||
+            lastError.toLowerCase().includes('limit') ||
+            lastError.toLowerCase().includes('api key') ||
+            lastError.toLowerCase().includes('unauthorized') ||
+            lastError.toLowerCase().includes('invalid') ||
+            lastError.toLowerCase().includes('credit');
+
+          if (!isRetryableError) {
+            break;
+          }
         }
 
         if (!success) {
@@ -768,7 +773,8 @@ export const useAiPdfVerification = ({
         const keysToTry = [
           userGeminiKey,
           DEFAULT_GEMINI_API_KEY,
-          BACKUP_GEMINI_API_KEY,
+          BACKUP_GEMINI_API_KEY_1,
+          BACKUP_GEMINI_API_KEY_2,
           fallbackDefault,
           fallbackBackup,
         ].filter(
@@ -788,85 +794,83 @@ export const useAiPdfVerification = ({
           return;
         }
 
-        const geminiModels = models.filter(m => m.provider === 'gemini').map(m => m.model);
-        const modelsToTry = Array.from(new Set([DEFAULT_GEMINI_MODEL, effectiveModelName, ...geminiModels]));
-
         let lastError = '';
         let lastDebugInfo = '';
-        let lastModel = effectiveModelName;
+        let lastModel = DEFAULT_GEMINI_MODEL;
         let success = false;
 
         // Intentamos cada API Key
-        for (const apiKey of keysToTry) {
-          // Para cada API Key, intentamos todos los modelos disponibles
-          for (const modelName of modelsToTry) {
-            const result = await analyzePDFWithGemini(selectedFile, apiKey, modelName, {
-              knownHeaders: headersToUse,
-              onProgress,
-              signal: abortController.signal,
-              startPartIndex: resume?.startPartIndex,
-              initialProcessedParts: resume?.initialProcessedParts,
-              temperature,
-              topP,
-              stream,
-            });
-
-            if (result.success && result.headers && result.rows) {
-              currentLog = upsertLog({
-                ...currentLog,
-                status: 'completed',
-                endedAt: Date.now(),
-                model: result.model || modelName,
-              });
-              setAiHeaders(result.headers);
-              aiHeadersRef.current = result.headers;
-              setDiff(computeSimpleDiff(localHeaders, localRows, result.headers, aiRowsRef.current));
-              setVerifyMessage(`Análisis completado con ${result.model || modelName}`);
-              setAiAnalysisState('completed');
-              aiPersistence.updateMeta({
-                status: 'completed',
-                processedParts: aiNextPartIndexRef.current,
-                nextPartIndex: aiNextPartIndexRef.current,
-                totalParts: typeof totalParts === 'number' ? totalParts : null,
-              });
-              success = true;
-              break;
-            }
-
-            if (result.error === 'ABORTED') {
-              if (currentAiLogIdRef.current !== logId) return;
-              currentLog = upsertLog({ ...currentLog, status: 'stopped', endedAt: Date.now() });
-              aiPersistence.updateMeta({
-                status: 'stopped',
-                processedParts: aiNextPartIndexRef.current,
-                nextPartIndex: aiNextPartIndexRef.current,
-                totalParts: typeof totalParts === 'number' ? totalParts : null,
-              });
-              setVerifyMessage('Análisis detenido.');
-              setAiAnalysisState('stopped');
-              return;
-            }
-
-            lastError = result.error || 'Error al analizar con Gemini';
-            lastDebugInfo = result.debugInfo || '';
-            lastModel = result.model || modelName;
-
-            // Solo reintentamos con otro modelo o clave si es un error de cuota, crédito o API key
-            const isRetryableError =
-              lastError.includes('429') ||
-              lastError.toLowerCase().includes('quota') ||
-              lastError.toLowerCase().includes('exhausted') ||
-              lastError.toLowerCase().includes('limit') ||
-              lastError.toLowerCase().includes('api key') ||
-              lastError.toLowerCase().includes('unauthorized') ||
-              lastError.toLowerCase().includes('invalid') ||
-              lastError.toLowerCase().includes('credit');
-
-            if (!isRetryableError) {
-              break;
-            }
+        for (let apiKeyIndex = 0; apiKeyIndex < keysToTry.length; apiKeyIndex++) {
+          const apiKey = keysToTry[apiKeyIndex];
+          if (apiKeyIndex > 0) {
+            console.warn(
+              `[Gemini] Cambiando de API key (${apiKeyIndex + 1}/${keysToTry.length}) ${maskApiKey(apiKey)}`,
+            );
           }
-          if (success) break;
+          const result = await analyzePDFWithGemini(selectedFile, apiKey, DEFAULT_GEMINI_MODEL, {
+            knownHeaders: headersToUse,
+            onProgress,
+            signal: abortController.signal,
+            startPartIndex: resume?.startPartIndex,
+            initialProcessedParts: resume?.initialProcessedParts,
+            temperature,
+            topP,
+            stream,
+          });
+
+          if (result.success && result.headers && result.rows) {
+            currentLog = upsertLog({
+              ...currentLog,
+              status: 'completed',
+              endedAt: Date.now(),
+              model: result.model || DEFAULT_GEMINI_MODEL,
+            });
+            setAiHeaders(result.headers);
+            aiHeadersRef.current = result.headers;
+            setDiff(computeSimpleDiff(localHeaders, localRows, result.headers, aiRowsRef.current));
+            setVerifyMessage(`Análisis completado con ${result.model || DEFAULT_GEMINI_MODEL}`);
+            setAiAnalysisState('completed');
+            aiPersistence.updateMeta({
+              status: 'completed',
+              processedParts: aiNextPartIndexRef.current,
+              nextPartIndex: aiNextPartIndexRef.current,
+              totalParts: typeof totalParts === 'number' ? totalParts : null,
+            });
+            success = true;
+            break;
+          }
+
+          if (result.error === 'ABORTED') {
+            if (currentAiLogIdRef.current !== logId) return;
+            currentLog = upsertLog({ ...currentLog, status: 'stopped', endedAt: Date.now() });
+            aiPersistence.updateMeta({
+              status: 'stopped',
+              processedParts: aiNextPartIndexRef.current,
+              nextPartIndex: aiNextPartIndexRef.current,
+              totalParts: typeof totalParts === 'number' ? totalParts : null,
+            });
+            setVerifyMessage('Análisis detenido.');
+            setAiAnalysisState('stopped');
+            return;
+          }
+
+          lastError = result.error || 'Error al analizar con Gemini';
+          lastDebugInfo = result.debugInfo || '';
+          lastModel = result.model || DEFAULT_GEMINI_MODEL;
+
+          const isRetryableError =
+            lastError.includes('429') ||
+            lastError.toLowerCase().includes('quota') ||
+            lastError.toLowerCase().includes('exhausted') ||
+            lastError.toLowerCase().includes('limit') ||
+            lastError.toLowerCase().includes('api key') ||
+            lastError.toLowerCase().includes('unauthorized') ||
+            lastError.toLowerCase().includes('invalid') ||
+            lastError.toLowerCase().includes('credit');
+
+          if (!isRetryableError) {
+            break;
+          }
         }
 
         if (!success) {

@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { settingsDb, type AiProviderId } from '@/lib/localDb';
 import {
   DEFAULT_GEMINI_API_KEY,
-  BACKUP_GEMINI_API_KEY,
+  BACKUP_GEMINI_API_KEY_1,
+  BACKUP_GEMINI_API_KEY_2,
   DEFAULT_GEMINI_MODEL,
 } from '@/lib/aiConfig';
 import { showError, showSuccess } from '@/utils/toast';
@@ -56,6 +57,11 @@ export const useLedgerHeaderFlow = ({
   const lastLedgerFingerprint = useRef<string | null>(null);
   const rawLedgerRowsRef = useRef<string[][] | null>(null);
   const prevStepRef = useRef<number>(step);
+  const maskApiKey = (apiKey: string) => {
+    const trimmed = apiKey.trim();
+    if (trimmed.length <= 10) return '***';
+    return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
+  };
 
   const filterEmptyRows = (rows: string[][]) =>
     rows.filter(row => row.some(cell => String(cell ?? '').trim() !== ''));
@@ -220,7 +226,14 @@ ${sampleRows.join('\n')}`;
         const userGeminiKey = settingsDb.getGeminiApiKey();
         const fallbackDefault = settingsDb.getGeminiDefaultFallbackApiKey();
         const fallbackBackup = settingsDb.getGeminiBackupFallbackApiKey();
-        const keysToTry = [userGeminiKey, DEFAULT_GEMINI_API_KEY, BACKUP_GEMINI_API_KEY, fallbackDefault, fallbackBackup].filter(
+        const keysToTry = [
+          userGeminiKey,
+          DEFAULT_GEMINI_API_KEY,
+          BACKUP_GEMINI_API_KEY_1,
+          BACKUP_GEMINI_API_KEY_2,
+          fallbackDefault,
+          fallbackBackup,
+        ].filter(
           (k): k is string => typeof k === 'string' && k.trim().length > 0,
         );
 
@@ -229,46 +242,41 @@ ${sampleRows.join('\n')}`;
           return;
         }
 
-        const geminiModels = settingsDb
-          .getAiModels()
-          .filter(m => m.provider === 'gemini')
-          .map(m => m.model);
-        const modelsToTry = Array.from(new Set([DEFAULT_GEMINI_MODEL, ai.effectiveModelName, ...geminiModels]));
-
         let success = false;
         let lastError = '';
 
         // Intentamos cada API Key
-        for (const apiKey of keysToTry) {
-          // Para cada API Key, intentamos todos los modelos disponibles
-          for (const modelName of modelsToTry) {
-            try {
-              const { GoogleGenerativeAI } = await import('@google/generative-ai');
-              const genAI = new GoogleGenerativeAI(apiKey.trim());
-              const model = genAI.getGenerativeModel({ model: modelName || DEFAULT_GEMINI_MODEL });
-              const result = await model.generateContent(prompt);
-              const response = await result.response;
-              rawText = response.text();
-              success = true;
-              break;
-            } catch (e: unknown) {
-              lastError = e instanceof Error ? e.message : 'Error desconocido';
-              
-              // Solo reintentamos con otro modelo o clave si es un error de cuota, crédito o API key
-              const isRetryableError =
-                lastError.includes('429') ||
-                lastError.toLowerCase().includes('quota') ||
-                lastError.toLowerCase().includes('exhausted') ||
-                lastError.toLowerCase().includes('limit') ||
-                lastError.toLowerCase().includes('api key') ||
-                lastError.toLowerCase().includes('unauthorized') ||
-                lastError.toLowerCase().includes('invalid') ||
-                lastError.toLowerCase().includes('credit');
-                
-              if (!isRetryableError) break;
-            }
+        for (let apiKeyIndex = 0; apiKeyIndex < keysToTry.length; apiKeyIndex++) {
+          const apiKey = keysToTry[apiKeyIndex];
+          if (apiKeyIndex > 0) {
+            console.warn(
+              `[Gemini] Cambiando de API key (${apiKeyIndex + 1}/${keysToTry.length}) ${maskApiKey(apiKey)}`,
+            );
           }
-          if (success) break;
+          try {
+            const { GoogleGenerativeAI } = await import('@google/generative-ai');
+            const genAI = new GoogleGenerativeAI(apiKey.trim());
+            const model = genAI.getGenerativeModel({ model: DEFAULT_GEMINI_MODEL });
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            rawText = response.text();
+            success = true;
+            break;
+          } catch (e: unknown) {
+            lastError = e instanceof Error ? e.message : 'Error desconocido';
+
+            const isRetryableError =
+              lastError.includes('429') ||
+              lastError.toLowerCase().includes('quota') ||
+              lastError.toLowerCase().includes('exhausted') ||
+              lastError.toLowerCase().includes('limit') ||
+              lastError.toLowerCase().includes('api key') ||
+              lastError.toLowerCase().includes('unauthorized') ||
+              lastError.toLowerCase().includes('invalid') ||
+              lastError.toLowerCase().includes('credit');
+
+            if (!isRetryableError) break;
+          }
         }
 
         if (!success) {

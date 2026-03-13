@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Play, RotateCcw, Square, Trash2 } from 'lucide-react';
+
+const AI_PROCESSED_PARTS_STORAGE_KEY = 'finanzas360:ai-processed-parts:v1';
+const AI_PROCESSED_PARTS_CHANGED_EVENT = 'finanzas360:ai-processed-parts-changed';
 
 type Props = {
   hasTotalParts: boolean;
@@ -32,6 +35,26 @@ export const AiProgressControls: React.FC<Props> = ({
   onCancel,
   onViewDetail,
 }) => {
+  useEffect(() => {
+    try {
+      localStorage.setItem(AI_PROCESSED_PARTS_STORAGE_KEY, String(displayProcessedParts));
+      window.dispatchEvent(new Event(AI_PROCESSED_PARTS_CHANGED_EVENT));
+    } catch {
+      return;
+    }
+  }, [displayProcessedParts]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        localStorage.setItem(AI_PROCESSED_PARTS_STORAGE_KEY, '0');
+        window.dispatchEvent(new Event(AI_PROCESSED_PARTS_CHANGED_EVENT));
+      } catch {
+        return;
+      }
+    };
+  }, []);
+
   const percent = hasTotalParts ? Math.round((displayProcessedParts / displayTotalParts) * 100) : null;
   const canShowResume = aiAnalysisState === 'stopped' || aiAnalysisState === 'failed';
   return (
@@ -72,4 +95,3 @@ export const AiProgressControls: React.FC<Props> = ({
     </div>
   );
 };
-

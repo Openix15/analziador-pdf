@@ -19,8 +19,8 @@ type Props = {
 const AI_PREFS_STORAGE_KEY = 'pdf-structured-extractor:ai-preferences:v1';
 const AI_PREFS_CHANGED_EVENT = 'pdf-structured-extractor:ai-preferences:changed';
 const CREDIT_LIMIT = 100;
-const AI_EXTRA_COUNT_STORAGE_KEY = 'finanzas360:ai-extra-count:v1';
-const AI_EXTRA_COUNT_CHANGED_EVENT = 'finanzas360:ai-extra-count-changed';
+const AI_PROCESSED_PARTS_STORAGE_KEY = 'finanzas360:ai-processed-parts:v1';
+const AI_PROCESSED_PARTS_CHANGED_EVENT = 'finanzas360:ai-processed-parts-changed';
 
 type AiPrefs = {
   provider: AiProviderId;
@@ -81,9 +81,9 @@ const Navbar: React.FC<Props> = ({ authStorageKey }) => {
   const location = useLocation();
   const email = getSessionEmail(authStorageKey);
   const [openSettings, setOpenSettings] = useState(false);
-  const [aiExtraCount, setAiExtraCount] = useState<number>(() => {
+  const [aiProcessedParts, setAiProcessedParts] = useState<number>(() => {
     try {
-      const raw = localStorage.getItem(AI_EXTRA_COUNT_STORAGE_KEY);
+      const raw = localStorage.getItem(AI_PROCESSED_PARTS_STORAGE_KEY);
       const n = raw ? Number(raw) : 0;
       return Number.isFinite(n) ? n : 0;
     } catch {
@@ -95,8 +95,8 @@ const Navbar: React.FC<Props> = ({ authStorageKey }) => {
   const aiLogs = settingsDb.getAiLogs();
   const safeAiLogs = useMemo(() => (Array.isArray(aiLogs) ? aiLogs : []), [aiLogs]);
   const creditAvaiable = useMemo(
-    () => `Crédito disponible ${safeAiLogs.length + aiExtraCount}/${CREDIT_LIMIT}`,
-    [aiExtraCount, safeAiLogs.length],
+    () => `Crédito disponible ${safeAiLogs.length + aiProcessedParts}/${CREDIT_LIMIT}`,
+    [aiProcessedParts, safeAiLogs.length],
   );
   const [provider, setProvider] = useState<AiProviderId>('gemini');
   const [modelId, setModelId] = useState<string>('');
@@ -154,15 +154,15 @@ const Navbar: React.FC<Props> = ({ authStorageKey }) => {
   useEffect(() => {
     const refresh = () => {
       try {
-        const raw = localStorage.getItem(AI_EXTRA_COUNT_STORAGE_KEY);
+        const raw = localStorage.getItem(AI_PROCESSED_PARTS_STORAGE_KEY);
         const n = raw ? Number(raw) : 0;
-        setAiExtraCount(Number.isFinite(n) ? n : 0);
+        setAiProcessedParts(Number.isFinite(n) ? n : 0);
       } catch {
-        setAiExtraCount(0);
+        setAiProcessedParts(0);
       }
     };
-    window.addEventListener(AI_EXTRA_COUNT_CHANGED_EVENT, refresh);
-    return () => window.removeEventListener(AI_EXTRA_COUNT_CHANGED_EVENT, refresh);
+    window.addEventListener(AI_PROCESSED_PARTS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(AI_PROCESSED_PARTS_CHANGED_EVENT, refresh);
   }, []);
 
   const handleLogout = () => {
